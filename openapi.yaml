@@ -1,0 +1,241 @@
+openapi: 3.1.0
+info:
+  title: Panoramax API - Upload
+  description: Create collections and items
+  version: 1.0.0
+---
+components:
+  schemas:
+    GeoVisioCollection:
+      allOf:
+      - "$ref": "#/components/schemas/STACCollection"
+      - properties:
+          geovisio:sorted-by:
+            "$ref": "#/components/schemas/GeoVisioCollectionSortedBy"
+          geovisio:status:
+            "$ref": "#/components/schemas/GeoVisioCollectionStatus"
+          stats:items:
+            "$ref": "#/components/schemas/STACStatsForItems"
+        type: object
+    GeoVisioCollectionImportStatus:
+      properties:
+        items:
+          items:
+            properties:
+              id:
+                type: string
+              nb_errors:
+                type: integer
+              process_error:
+                type: string
+              processed_at:
+                format: date-time
+                type: string
+              processing_in_progress:
+                type: boolean
+              rank:
+                type: integer
+              status:
+                "$ref": "#/components/schemas/GeoVisioItemStatus"
+            type: object
+          type: array
+        status:
+          "$ref": "#/components/schemas/GeoVisioCollectionStatus"
+      type: object
+    GeoVisioCollectionSortedBy:
+      description: |2
+
+        Define the pictures sort order of the sequence. Null by default, and can be set via the collection PATCH.
+        Sort order is defined based on preceding '+' (asc) or '-' (desc).
+
+        Available properties are:
+        * `gpsdate`: sort by GPS datetime
+        * `filedate`: sort by the camera-generated capture date. This is based on EXIF tags `Exif.Image.DateTimeOriginal`, `Exif.Photo.DateTimeOriginal`, `Exif.Image.DateTime` or `Xmp.GPano.SourceImageCreateTime` (in this order).
+        * `filename`: sort by the original picture file name
+      enum:
+      - "+gpsdate"
+      - "-gpsdate"
+      - "+filedate"
+      - "-filedate"
+      - "+filename"
+      - "-filename"
+      type: string
+    GeoVisioCollectionStatus:
+      enum:
+      - ready
+      - broken
+      - preparing
+      - waiting-for-process
+      type: string
+    GeoVisioItem:
+      allOf:
+      - "$ref": "#/components/schemas/STACItem"
+      - properties:
+          properties:
+            properties:
+              geovisio:image:
+                format: uri
+                type: string
+              geovisio:producer:
+                type: string
+              geovisio:status:
+                "$ref": "#/components/schemas/GeoVisioItemStatus"
+              geovisio:thumbnail:
+                format: uri
+                type: string
+              original_file:name:
+                title: Original file name
+                type: string
+              original_file:size:
+                minimum: 0
+                title: Size of the original file, in bytes
+                type: integer
+            type: object
+        type: object
+    GeoVisioItemStatus:
+      enum:
+      - ready
+      - broken
+      - waiting-for-process
+      type: string
+    GeoVisioPostCollection:
+      properties:
+        title:
+          description: The sequence title
+          type: string
+      type: object
+    GeoVisioPostItem:
+      patternProperties:
+        override_(Exif|Xmp)\..+:
+          description: An EXIF or XMP tag to use instead of existing one in picture
+            file metadata. The query name can be any valid Exiv2 property name.
+          type: string
+      properties:
+        isBlurred:
+          default: 'false'
+          description: Is picture blurred
+          enum:
+          - 'true'
+          - 'false'
+          - 'null'
+          type: string
+        override_capture_time:
+          description: datetime when the picture was taken. It will change the picture's
+            metadata with this datetime. It should be an iso 3339 formated datetime
+            (like '2017-07-21T17:32:28Z')
+          format: date-time
+          type: string
+        override_latitude:
+          description: latitude of the picture in decimal degrees (WGS84 / EPSG:4326).
+            It will change the picture's metadata with this latitude.
+          format: double
+          type: number
+        override_longitude:
+          description: longitude of the picture in decimal degrees (WGS84 / EPSG:4326).
+            It will change the picture's metadata with this longitude.
+          format: double
+          type: number
+        picture:
+          description: Picture to upload
+          format: binary
+          type: string
+        position:
+          description: Position of picture in sequence (starting from 1)
+          type: integer
+      type: object
+    STACCollection:
+      "$ref": https://api.stacspec.org/v1.0.0/collections/openapi.yaml#/components/schemas/collection
+    STACItem:
+      description: A GeoJSON Feature augmented with foreign members that contain values
+        relevant to a STAC entity
+      properties:
+        assets:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/assets
+        geometry:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/pointGeoJSON
+        id:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/itemId
+        links:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/links
+        properties:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/properties
+        stac_extensions:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/stac_extensions
+        stac_version:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/stac_version
+        type:
+          "$ref": https://api.stacspec.org/v1.0.0/ogcapi-features/openapi.yaml#/components/schemas/itemType
+      required:
+      - stac_version
+      - id
+      - type
+      - geometry
+      - bbox
+      - links
+      - properties
+      - assets
+      type: object
+    STACStatsForItems:
+      "$ref": https://stac-extensions.github.io/stats/v0.2.0/schema.json#/definitions/stats_for_items
+paths:
+  "/collections":
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GeoVisioPostCollection"
+          application/x-www-form-urlencoded:
+            schema:
+              "$ref": "#/components/schemas/GeoVisioPostCollection"
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/GeoVisioPostCollection"
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GeoVisioCollection"
+          description: the collection metadata
+  "/collections/{collectionId}/geovisio_status":
+    get:
+      parameters:
+      - description: ID of collection to retrieve
+        in: path
+        name: collectionId
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GeoVisioCollectionImportStatus"
+          description: the pictures statuses
+      summary: Retrieve import status of all pictures in sequence
+      tags:
+      - Upload
+  "/collections/{collectionId}/items":
+    post:
+      parameters:
+      - description: ID of sequence to add this picture into
+        in: path
+        name: collectionId
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/GeoVisioPostItem"
+      responses:
+        '202':
+          content:
+            application/geo+json:
+              schema:
+                "$ref": "#/components/schemas/GeoVisioItem"
+          description: the added picture metadata
+      summary: Add a new picture in a given sequence
